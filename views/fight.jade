@@ -1,0 +1,65 @@
+extends layout
+
+block head
+  title Profile Fight
+
+mixin player
+  h1#name
+  .profile
+    img#profile.img-polaroid
+  table
+    tr
+      td Health
+      td
+        span.health#health
+        span.health-consumed &nbsp
+    tr
+      td Mana
+      td
+        span.mana#mana
+        span.mana-consumed &nbsp
+    tr
+      td Power
+      td
+        span.power#power
+    tr
+      td Defence
+      td
+        span.defence#defence
+  #spells.spells
+    button#spell0
+      img
+    button#spell1
+      img
+    button#spell2
+      img
+    button#spell3
+      img
+    button#spell4
+      img
+
+block content
+  .container
+    .row
+      #player0.span5.center.player
+        mixin player
+      #center.span2.center
+        p#player
+        p#spell
+        p#spell-name
+        p#spell-effect
+      #player1.span5.center.player
+        mixin player
+    .row
+      for id in friends
+        a(href="/fight/" + id)
+          img(src='/img/profiles/thumbs/' + id + '.jpg')
+    footer.footer Copyright 2013
+      a(href="https://www.byvoid.com/") BYVoid
+
+block scripts
+  script(src='/socket.io/socket.io.js')
+  script.
+    var myself = '#{myself}';
+    var opponent = '#{opponent}';
+  != js('fight')

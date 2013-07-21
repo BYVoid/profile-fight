@@ -1,0 +1,19 @@
+{
+  "name": "friendsfight",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "continuation app.js -e -c"
+  },
+  "dependencies": {
+    "express": "3.3.4",
+    "jade": "*",
+    "socket.io": "~0.9.16",
+    "connect-assets": "~2.5.0",
+    "less": "~1.4.1",
+    "facebook-node-sdk": "~0.2.0",
+    "mongoose": "~3.6.15",
+    "request": "~2.22.0",
+    "connect-mongo": "~0.3.3"
+  }
+}
