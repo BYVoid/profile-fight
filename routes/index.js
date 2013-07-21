@@ -8,8 +8,9 @@ var Relation = require('../models/relation');
 
 exports.configure = function(app) {
   app.all('/', facebook.loginRequired(), index);
-  app.all('/fight', fight);
-  app.all('/fight/:opponent', fight);
+  app.get('/fight', fight);
+  app.get('/fight/:opponent', fight);
+  app.get('/logout', logout)
 };
 
 var index = function(req, res) {
@@ -83,4 +84,9 @@ var fight = function(req, res) {
     opponent: opponent,
     friends: friends
   });
+};
+
+var logout = function(req, res) {
+  req.session = null;
+  res.redirect('https://www.byvoid.com');
 };

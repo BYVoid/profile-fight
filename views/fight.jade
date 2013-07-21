@@ -50,10 +50,22 @@ block content
         p#spell-effect
       #player1.span5.center.player
         mixin player
-    .row
+    .row#controls
+      button#new-game.btn New Game
+      =' '
+      button#ai.btn AI
+      =' '
+      button#connect.btn Connect
+      =' '
+      a.btn(href="/logout") Exit
+    .row#friends
+      h1 Friends
       for id in friends
         a(href="/fight/" + id)
           img(src='/img/profiles/thumbs/' + id + '.jpg')
+    .row#online
+      h1 Awaiting players
+      #players
     footer.footer Copyright 2013
       a(href="https://www.byvoid.com/") BYVoid
 

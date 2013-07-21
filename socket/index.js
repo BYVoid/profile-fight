@@ -5,6 +5,7 @@ var User = require('../models/user');
 
 var fightID = 0;
 var fights = {};
+var onlines = {};
 
 var Fight = function(id, players, sockets) {
   this.id = id;
@@ -12,13 +13,15 @@ var Fight = function(id, players, sockets) {
   this.players = players;
   this.sockets = sockets;
   this.turn = 0;
+  this.both = true;
 };
 
 Fight.prototype.toObject = function() {
   return {
     id: this.id,
     players: this.players,
-    turn: this.turn
+    turn: this.turn,
+    both: this.both
   };
 };
 
@@ -85,6 +88,8 @@ exports.configure = function(io) {
     socket.on('new_fight', newFight(socket));
     socket.on('start_fight', startFight);
     socket.on('spell', spell);
+    socket.on('online', online(socket));
+    socket.on('connect', connect(socket));
   });
 };
 
@@ -127,15 +132,20 @@ var initializePlayer = function(id, next) {
   });
 };
 
+var allocateFight = function(data, socket1, socket2, next) {
+  fightID++;
+  initializePlayer(data.myself, obtain(player1));
+  initializePlayer(data.opponent, obtain(player2));
+  var fight = new Fight(fightID, [player1, player2], [socket1, socket2]);
+  fights[fightID] = fight;
+  next(null, fight);
+};
+
 var newFight = function(socket) {
   return function(data) {
     try {
-      fightID++;
-      initializePlayer(data.myself, obtain(player1));
-      initializePlayer(data.opponent, obtain(player2));
-      var fight = new Fight(fightID, [player1, player2], [socket, socket]);
-      fights[fightID] = fight;
-      socket.emit('new_fight', fight.toObject());
+      allocateFight(data, socket, socket, obtain(fight));
+      fight.notifyBoth('new_fight', fight.toObject());
     } catch (err) {
       console.error(err.stack);
     }
@@ -148,8 +158,7 @@ var startFight = function(data) {
     // TODO exception
     return;
   }
-  var socket = fight.sockets[fight.turn];
-  socket.emit('decide', fight.toObject());
+  fight.notifyBoth('decide', fight.toObject());
   fight.turn = 1 - fight.turn;
 };
 
@@ -189,13 +198,51 @@ var spell = function(data) {
   var effect = {
     player: data.player,
     delta: delta,
+    spellID: data.spellID
   };
   fight.notifyBoth('spell_effect', effect);
   if (foe.points.health <= 0) {
     fight.notifyBoth('over', data.player);
     return;
   }
-  var socket = fight.sockets[fight.turn];
-  socket.emit('decide', fight.toObject());
+  fight.notifyBoth('decide', fight.toObject());
   fight.turn = 1 - fight.turn;
+};
+
+var broadcastOnline = function() {
+  var players = [];
+  Object.keys(onlines).forEach(function(player) {
+    var socket = onlines[player];
+    if (socket.disconnected) {
+      delete onlines[player];
+    } else {
+      players.push(player);
+    }
+  });
+  Object.keys(onlines).forEach(function(player) {
+    var socket = onlines[player];
+    socket.emit('online_players', players);
+  });
+};
+
+var online = function(socket) {
+  return function(player) {
+    onlines[player] = socket;
+    broadcastOnline();
+  };
+};
+
+var connect = function(socket) {
+  return function(data) {
+    var socket1 = onlines[data.myself];
+    var socket2 = onlines[data.opponent];
+    if (socket1 && socket2) {
+      allocateFight(data, socket1, socket2, obtain(fight));
+      fight.both = false;
+      fight.notifyBoth('new_fight', fight.toObject());
+    }
+    delete onlines[data.myself];
+    delete onlines[data.opponent];
+    broadcastOnline();
+  };
 };

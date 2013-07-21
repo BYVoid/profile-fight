@@ -3,6 +3,8 @@ var socket = io.connect(location.hostname);
 var theFight;
 var initials = [];
 var spellSet;
+var left, right;
+var spellEnabled = [false, false];
 
 socket.on('connection', function(data) {
   spellSet = data.spellSet;
@@ -18,19 +20,35 @@ socket.on('new_fight', function(fight) {
   view.initialize(fight);
   view.disableSpell();
   view.update(fight);
-  socket.emit('start_fight', {fightID: fight.id});
+  if (fight.players[0].id == myself) {
+    left = true;
+    right = false;
+    socket.emit('start_fight', {fightID: fight.id});
+  } else {
+    left = false;
+    right = true;
+  }
+  if (fight.both) {
+    left = right = true;
+  }
 });
 
 socket.on('decide', function(fight) {
   console.log(fight);
   theFight = fight;
   view.update(fight);
-  view.enableSpell(fight.turn);
+  view.disableSpell(fight.turn);
+  view.disableSpell(1 - fight.turn);
+  if ((left && fight.turn == 0) || (right && fight.turn == 1)) {
+    view.enableSpell(fight.turn);
+  }
 });
 
 socket.on('spell_effect', function(data) {
   var delta = data.delta;
   var player = data.player;
+  var spellSetID = theFight.players[player].points.spellSet;
+  var spell = spellSet[spellSetID][data.spellID];
   var text = '';
   if (delta.mHP || delta.mMP) {
     text += '<big>' + theFight.players[player].name + '</big><br>';
@@ -50,6 +68,9 @@ socket.on('spell_effect', function(data) {
   if (delta.oMP) {
     text += 'MP ' + addPositive(delta.oMP) + '<br>';
   }
+  $('#center #player').html(theFight.players[player].name);
+  $('#center #spell').html('<img src="/img/spells/' + spellSetID + data.spellID + '.png">');
+  $('#center #spell-name').html(spell.name);
   $('#center #spell-effect').html(text);
 });
 
@@ -61,6 +82,10 @@ socket.on('over', function(player) {
   view.setPlayer(1 - player, theFight);
 });
 
+socket.on('online_players', function(players) {
+  view.updateOnlinePlayers(players);
+});
+
 var addPositive = function(num) {
   if (num > 0) {
     return '+' + num;
@@ -68,6 +93,11 @@ var addPositive = function(num) {
     return num.toString();
   }
 };
+
+$(function() {
+  $('#controls #new-game').click(view.onNewGameClick);
+  $('#controls #connect').click(view.onConnectClick);
+});
 
 var view = {};
 view.barWidth = 150;
@@ -81,6 +111,8 @@ view.initialize = function(fight) {
     $(spell).attr('disabled', true);
     $(spell).click({player:1, id: id}, view.onSpellClick);
   });
+  $('#friends').hide();
+  $('#online').hide();
 };
 
 view.update = function(fight) {
@@ -97,6 +129,7 @@ view.getPlayer = function(player) {
 }
 
 view.enableSpell = function(player) {
+  spellEnabled[player] = true;
   player = view.getPlayer(player);
   $('#spells button', player).each(function(id, spell) {
     $(spell).attr('disabled', false);
@@ -105,6 +138,7 @@ view.enableSpell = function(player) {
 };
 
 view.disableSpell = function(player) {
+  spellEnabled[player] = false;
   player = view.getPlayer(player);
   $('#spells button', player).each(function(id, spell) {
     $(spell).attr('disabled', true);
@@ -166,6 +200,9 @@ view.setPlayer = function(player, fight) {
 view.onSpellClick = function(event) {
   var player = event.data.player;
   var spellID = event.data.id;
+  if (!spellEnabled[player]) {
+    return false;
+  }
   var spell = spellSet[theFight.players[player].points.spellSet][spellID];
   if (theFight.players[player].points.mana + spell.mMP < 0) {
     bootbox.alert('Not enough mana!');
@@ -176,13 +213,41 @@ view.onSpellClick = function(event) {
     return false;
   }
   view.disableSpell(player);
-  $('#center #spell').html('');
-  $('#center #player').html(theFight.players[player].name);
-  $('img', event.currentTarget).clone().appendTo('#center #spell');
-  $('#center #spell-name').html(spell.name);
   socket.emit('spell', {
     fightID: theFight.id,
     player: theFight.turn,
     spellID: spellID
   });
-}
+};
+
+view.onNewGameClick = function() {
+  $('#friends').show(200);
+  $('#online').hide();
+};
+
+view.onConnectClick = function() {
+  $('#friends').hide();
+  $('#online').show(200);
+  socket.emit('online', myself);
+};
+
+view.updateOnlinePlayers = function(players) {
+  $('#online #players').html('');
+  var html = '';
+  players.forEach(function(player) {
+    html += '<a href="#" onclick="view.onConnectPlayerClick(' + player + ')"><img src="/img/profiles/thumbs/' + player + '.jpg"></a>';
+  });
+  $('#online #players').html(html);
+};
+
+view.onConnectPlayerClick = function(player) {
+  if (player == myself) {
+    bootbox.alert('You can not connect to yourself.');
+    return false;
+  }
+  socket.emit('connect', {
+    myself: myself,
+    opponent: player
+  });
+  return false;
+};
