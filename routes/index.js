@@ -14,11 +14,6 @@ exports.configure = function(app) {
 };
 
 var index = function(req, res) {
-  if (req.session.user) {
-    res.redirect('/fight');
-    return;
-  }
-
   var downloadThumb = function(url, id, next) {
     request({url: url, encoding: null}, obtain(res, body));
     fs.writeFile(path.join(__dirname, '..', 'public', 'img', 'profiles', 'thumbs', id + '.jpg'), body, obtain());
