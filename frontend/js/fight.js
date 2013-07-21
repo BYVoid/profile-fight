@@ -97,6 +97,9 @@ var addPositive = function(num) {
 $(function() {
   $('#controls #new-game').click(view.onNewGameClick);
   $('#controls #connect').click(view.onConnectClick);
+  $('#controls #ai').click(function() {
+    bootbox.alert('Not implemented yet :(');
+  });
 });
 
 var view = {};
